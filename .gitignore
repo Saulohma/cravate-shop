@@ -1,0 +1,6 @@
+.streamlit/secrets.toml
+cravate_shop.db
+__pycache__/
+*.pyc
+.env
+venv/
