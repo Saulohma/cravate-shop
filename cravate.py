@@ -317,6 +317,7 @@ st.markdown("""
     .cliente-card * { color: #ffffff !important; }
     .user-badge { display: inline-block; background: #3b82f6; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
     .admin-badge { display: inline-block; background: #8b5cf6; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .card.azul { border-left: 5px solid #3b82f6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -573,41 +574,27 @@ with tab3:
     produtos_baixa = df_produtos[df_produtos['estoque'] <= df_produtos['estoque_minimo']]
     produtos_ok = df_produtos[df_produtos['estoque'] > df_produtos['estoque_minimo']]
 
+    # Valor total investido em estoque
+    valor_investido = (df_produtos['preco'] * df_produtos['estoque']).sum()
+
     col_rec1, col_rec2, col_rec3, col_rec4 = st.columns(4)
+
     col_rec1.markdown(f"""<div class="card vermelho"><div class="kpi-label">🔴 Em Falta</div><div class="kpi-value">{len(produtos_criticos)}</div><div class="kpi-meta">Estoque zerado</div></div>""", unsafe_allow_html=True)
-    col_rec2.markdown(f"""<div class="card amarelo"><div class="kpi-label">🟡 Em Baixa</div><div class="kpi-value">{len(produtos_baixa)}</div><div class="kpi-meta">Abaixo do mínimo</div></div>""", unsafe_allow_html=True)
+
+    # Nomes dos produtos em baixa
+    nomes_baixa = ", ".join(produtos_baixa['nome'].tolist()) if len(produtos_baixa) > 0 else "—"
+    col_rec2.markdown(f"""<div class="card amarelo"><div class="kpi-label">🟡 Em Baixa</div><div class="kpi-value">{len(produtos_baixa)}</div><div class="kpi-meta">Abaixo do mínimo</div><div style="font-size:0.7rem;color:#fbbf24;margin-top:4px;">{nomes_baixa}</div></div>""", unsafe_allow_html=True)
+
     col_rec3.markdown(f"""<div class="card verde"><div class="kpi-label">🟢 Estoque OK</div><div class="kpi-value">{len(produtos_ok)}</div><div class="kpi-meta">Dentro do esperado</div></div>""", unsafe_allow_html=True)
-    if col_rec4.button("🔄 Recalcular Mínimos", use_container_width=True):
+
+    col_rec4.markdown(f"""<div class="card azul"><div class="kpi-label">💰 Valor em Estoque</div><div class="kpi-value" style="font-size:1.1rem;">R$ {valor_investido:,.2f}</div><div class="kpi-meta">Total investido</div></div>""", unsafe_allow_html=True)
+
+    # Botão recalcular abaixo dos cards
+    st.markdown("")  # Espaçamento
+    if st.button("🔄 Recalcular Mínimos", use_container_width=True):
         atualizar_estoque_minimo_automatico()
         st.success("Mínimos recalculados!")
         st.rerun()
-
-    st.markdown("### Produtos")
-    for _, row in df_produtos.iterrows():
-        estoque = int(row['estoque']); minimo = int(row['estoque_minimo']); preco = float(row['preco'])
-        if estoque == 0: cor = "vermelho"; status_text = "🔴 EM FALTA"
-        elif estoque <= minimo: cor = "amarelo"; qtd_repor = minimo * 2 - estoque; status_text = f"🟡 Compre {qtd_repor}un"
-        else: cor = "verde"; status_text = "🟢 OK"
-        with st.container():
-            st.markdown(f"""<div class="card {cor}"><div style="display:flex;justify-content:space-between;align-items:center;"><div><strong>{row['nome']}</strong><span class="badge" style="margin-left:10px;">{row['categoria']}</span></div><div>Preço: <strong style="color:#3b82f6;">R$ {preco:,.2f}</strong></div></div><div style="display:flex;justify-content:space-between;margin-top:10px;"><div><span>Estoque:</span><span style="font-size:1.3rem;font-weight:800;margin-left:8px;color:{'#f87171' if estoque <= minimo else '#34d399'}">{estoque} un</span><span style="font-size:0.75rem;margin-left:10px;">Mín: {minimo}un</span></div><span style="font-size:0.8rem;color:#f87171;font-weight:600;">{status_text}</span></div></div>""", unsafe_allow_html=True)
-            with st.expander(f"✏️ Editar {row['nome']}"):
-                col_ed1, col_ed2, col_ed3 = st.columns(3)
-                nova_qtd = col_ed1.number_input("Qtd", min_value=0, value=estoque, step=1, key=f"edit_est_{row['id']}", label_visibility="collapsed")
-                novo_min = col_ed2.number_input("Mín", min_value=1, value=minimo, step=1, key=f"edit_min_{row['id']}", label_visibility="collapsed")
-                novo_preco = col_ed3.number_input("Preço", min_value=0.01, value=preco, step=1.0, format="%.2f", key=f"edit_prec_{row['id']}", label_visibility="collapsed")
-                if st.button(f"Salvar", key=f"btn_{row['id']}", use_container_width=True):
-                    editar_produto(int(row['id']), nova_qtd, novo_min, novo_preco)
-                    st.success("Atualizado!")
-                    st.rerun()
-
-    produtos_baixa = df_produtos[df_produtos['estoque'] <= df_produtos['estoque_minimo']]
-    if len(produtos_baixa) > 0:
-        st.markdown("### 🛒 Sugestão de Compra")
-        for _, row in produtos_baixa.iterrows():
-            est = int(row['estoque']); min_ = int(row['estoque_minimo'])
-            sug = min_ * 3 - est
-            st.markdown(f"""<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #334155;color:#fff;"><span><strong>{row['nome']}</strong> ({row['categoria']})</span><span>Est: {est}un | Mín: {min_}un | <strong style="color:#fbbf24;">Comprar: {sug}un</strong></span></div>""", unsafe_allow_html=True)
-
 # ─── ABA 4 — DATAS E CLIENTES ───
 with tab4:
     st.markdown("### 📅 Calendário Comercial")
