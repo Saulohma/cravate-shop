@@ -238,6 +238,52 @@ def atualizar_estoque_minimo_automatico():
     conn.commit()
     conn.close()
 
+def deletar_usuario(user_id):
+    """Deleta um usuário e suas vendas"""
+    conn = get_conn()
+    try:
+        conn.execute(text("DELETE FROM vendas WHERE usuario_id = :uid"), {"uid": user_id})
+        conn.execute(text("DELETE FROM usuarios WHERE id = :uid AND tipo != 'admin'"), {"uid": user_id})
+        conn.commit()
+        return True
+    except:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def resetar_sistema():
+    """Reseta o sistema: limpa vendas, usuarios (menos admin), e restaura estoque inicial"""
+    conn = get_conn()
+    try:
+        # Limpa vendas e usuarios não-admin
+        conn.execute(text("DELETE FROM vendas"))
+        conn.execute(text("DELETE FROM usuarios WHERE tipo != 'admin'"))
+
+        # Restaura estoque inicial dos produtos
+        conn.execute(text("""
+            UPDATE produtos SET estoque = CASE nome
+                WHEN 'Gravata Estampada' THEN 50
+                WHEN 'Gravata Lisa' THEN 50
+                WHEN 'Gravata Seda Réplica' THEN 30
+                WHEN 'Gravata Seda' THEN 20
+                WHEN 'Cinto Automático' THEN 30
+                WHEN 'Prendedor de Gravata' THEN 100
+                WHEN 'Extensor de Colarinho' THEN 50
+                WHEN 'Carteira' THEN 30
+                WHEN 'Meia' THEN 60
+                ELSE estoque
+            END
+        """))
+        conn.commit()
+        return True
+    except:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
 def carregar_usuarios():
     conn = get_conn()
     df = pd.read_sql_query("SELECT id, email, nome, tipo, created_at FROM usuarios ORDER BY id", conn)
@@ -404,6 +450,51 @@ if st.session_state.usuario is None:
 usuario = st.session_state.usuario
 admin = usuario["tipo"] == "admin"
 
+# ═══════════════════════════════════════════
+# ADMINISTRAÇÃO (só para admin)
+# ═══════════════════════════════════════════
+if admin:
+    st.markdown("---")
+    st.markdown("### ⚙️ Administração")
+
+    tab_admin1, tab_admin2 = st.tabs(["👥 Usuários", "🔄 Resetar Sistema"])
+
+    # ─── TAB USUÁRIOS ───
+    with tab_admin1:
+        df_usuarios = carregar_usuarios()
+        for _, row in df_usuarios.iterrows():
+            if row['tipo'] == 'admin':
+                continue  # Não mostra opção de deletar o admin
+            col_u1, col_u2, col_u3, col_u4 = st.columns([2, 2, 2, 1])
+            col_u1.write(f"**{row['nome']}**")
+            col_u2.write(row['email'])
+            col_u3.write(row['tipo'])
+            if col_u4.button("🗑️", key=f"del_user_{row['id']}"):
+                if deletar_usuario(int(row['id'])):
+                    st.success(f"Usuário {row['nome']} deletado!")
+                    st.rerun()
+                else:
+                    st.error("Erro ao deletar usuário.")
+
+        if len(df_usuarios) == 0:
+            st.info("Nenhum usuário cadastrado.")
+
+    # ─── TAB RESET ───
+    with tab_admin2:
+        st.warning("⚠️ Isso vai apagar TODOS os dados do sistema!")
+        st.markdown("Será mantido apenas o **admin** e os **produtos** com estoque inicial.")
+        st.markdown("Vendas, usuários não-admin e registros serão **permanentemente removidos**.")
+
+        confirmar = st.text_input("Digite 'RESET' para confirmar:", placeholder="RESET")
+        if st.button("🔄 Resetar Sistema", type="primary", use_container_width=True):
+            if confirmar == "RESET":
+                if resetar_sistema():
+                    st.success("✅ Sistema resetado com sucesso! Pronto para novo cliente.")
+                    st.rerun()
+                else:
+                    st.error("Erro ao resetar sistema.")
+            else:
+                st.error("Digite 'RESET' para confirmar.")
 # Sidebar
 st.sidebar.markdown("## 🧣 Cravate Shop")
 st.sidebar.markdown(f"<span class='{'admin-badge' if admin else 'user-badge'}'>{'🔹 ADMIN' if admin else '👤 Cliente'}</span>", unsafe_allow_html=True)
