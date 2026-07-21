@@ -211,15 +211,20 @@ def baixar_estoque(produto_id, qtd):
 
 def registrar_venda(usuario_id, itens, qtd_total, valor_bruto, desconto, valor_final, data_venda, cliente):
     conn = get_conn()
-    conn.execute(
-        text("""INSERT INTO vendas (usuario_id, itens, quantidade_total, valor_bruto, desconto, valor_final, data, cliente_nome) 
-                VALUES (:uid, :itens, :qtd, :bruto, :desc, :final, :data, :cliente)"""),
-        {"uid": usuario_id, "itens": itens, "qtd": qtd_total, "bruto": valor_bruto,
-         "desc": desconto, "final": valor_final, "data": data_venda, "cliente": cliente}
-    )
-    conn.commit()
-    conn.close()
-    atualizar_estoque_minimo_automatico()
+    try:
+        conn.execute(
+            text("""INSERT INTO vendas (usuario_id, itens, quantidade_total, valor_bruto, desconto, valor_final, data, cliente_nome) 
+                    VALUES (:uid, :itens, :qtd, :bruto, :desc, :final, :data, :cliente)"""),
+            {"uid": usuario_id, "itens": itens, "qtd": qtd_total, "bruto": valor_bruto,
+             "desc": desconto, "final": valor_final, "data": data_venda, "cliente": cliente}
+        )
+        conn.commit()
+        conn.close()
+        atualizar_estoque_minimo_automatico()
+    except Exception as e:
+        conn.close()
+        st.error(f"**Erro ao registrar venda:** {e}")
+        st.stop()
 
 def atualizar_estoque_minimo_automatico():
     """Calcula o estoque mínimo baseado na média mensal de vendas dos últimos 3 meses"""
