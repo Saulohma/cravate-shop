@@ -253,28 +253,16 @@ def deletar_usuario(user_id):
         conn.close()
 
 def resetar_sistema():
-    """Reseta o sistema: limpa vendas, usuarios (menos admin), e restaura estoque inicial"""
+    """Reseta o sistema: limpa vendas, usuarios (menos admin), e ZERA o estoque"""
     conn = get_conn()
     try:
         # Limpa vendas e usuarios não-admin
         conn.execute(text("DELETE FROM vendas"))
         conn.execute(text("DELETE FROM usuarios WHERE tipo != 'admin'"))
 
-        # Restaura estoque inicial dos produtos
-        conn.execute(text("""
-            UPDATE produtos SET estoque = CASE nome
-                WHEN 'Gravata Estampada' THEN 50
-                WHEN 'Gravata Lisa' THEN 50
-                WHEN 'Gravata Seda Réplica' THEN 30
-                WHEN 'Gravata Seda' THEN 20
-                WHEN 'Cinto Automático' THEN 30
-                WHEN 'Prendedor de Gravata' THEN 100
-                WHEN 'Extensor de Colarinho' THEN 50
-                WHEN 'Carteira' THEN 30
-                WHEN 'Meia' THEN 60
-                ELSE estoque
-            END
-        """))
+        # ZERA o estoque de TODOS os produtos
+        conn.execute(text("UPDATE produtos SET estoque = 0"))
+
         conn.commit()
         return True
     except:
