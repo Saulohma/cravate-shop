@@ -52,16 +52,8 @@ def verificar_senha(senha, hash_completo):
     return hmac.compare_digest(hash_obj.hexdigest(), hash_esperado)
 
 def init_usuarios():
-    """Cria tabela de usuários e insere admin padrão se vazia"""
+    """Cria tabela de usuários e insere admin padrão"""
     conn = get_conn()
-    # Verifica se a coluna usuario_id já existe em vendas
-    try:
-        conn.execute(text("SELECT usuario_id FROM vendas LIMIT 1"))
-    except:
-        try:
-            conn.execute(text("ALTER TABLE vendas ADD COLUMN usuario_id INTEGER"))
-        except:
-            pass
 
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS usuarios (
@@ -73,15 +65,26 @@ def init_usuarios():
             created_at TIMESTAMP DEFAULT NOW()
         )
     """))
-    
-    # Admin padrão se não existir
-    resultado = conn.execute(text("SELECT COUNT(*) FROM usuarios WHERE tipo='admin'")).scalar()
-    if resultado == 0:
-        hash_admin = fazer_hash("admin123")
-        conn.execute(
-            text("INSERT INTO usuarios (email, senha_hash, nome, tipo) VALUES (:email, :hash, :nome, :tipo)"),
-            {"email": "admin@cravate.com", "hash": hash_admin, "nome": "Administrador", "tipo": "admin"}
-        )
+
+    # Admin padrão — sempre garante que existe
+    hash_admin = fazer_hash("admin123")
+    conn.execute(
+        text("""
+            INSERT INTO usuarios (email, senha_hash, nome, tipo) 
+            VALUES (:email, :hash, :nome, :tipo)
+            ON CONFLICT (email) DO UPDATE 
+            SET senha_hash = :hash2, nome = :nome2, tipo = :tipo2
+        """),
+        {
+            "email": "admin@cravate.com",
+            "hash": hash_admin,
+            "nome": "Administrador",
+            "tipo": "admin",
+            "hash2": hash_admin,
+            "nome2": "Administrador",
+            "tipo2": "admin"
+        }
+    )
     conn.commit()
     conn.close()
 
