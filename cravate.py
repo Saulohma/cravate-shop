@@ -631,18 +631,14 @@ with tab2:
             st.markdown(f"<p style='color:#94a3b8;'>Desconto total: <strong style='color:#ef4444;'>R$ {total_desconto:,.2f}</strong> | Média de itens por venda: <strong>{qtd_itens/qtd_vendas:.1f}</strong></p>", unsafe_allow_html=True)
 
             st.markdown("### 📈 Receita Diária")
-            df_dia = df_filtro.groupby('data')['valor_final'].sum().reset_index()
+            df_filtro['data_dia'] = pd.to_datetime(df_filtro['data']).dt.strftime('%Y-%m-%d')
+            df_dia = df_filtro.groupby('data_dia')['valor_final'].sum().reset_index()
             chart = alt.Chart(df_dia).mark_bar(color='#3b82f6').encode(
-                x=alt.X('data:T', title='Data'), y=alt.Y('valor_final:Q', title='Receita (R$)'), tooltip=['data', 'valor_final']
+                x=alt.X('data_dia:N', title='Data', sort=df_dia['data_dia'].tolist()),
+                y=alt.Y('valor_final:Q', title='Receita (R$)'),
+                tooltip=['data_dia', 'valor_final']
             ).properties(height=300)
             st.altair_chart(chart, use_container_width=True)
-
-            st.markdown("### 💡 Insights")
-            st.markdown(f"""<div class="card verde"><strong>🔍 Resumo</strong><br><br>• <strong>{qtd_vendas}</strong> vendas ({qtd_itens} itens)<br>• <strong>{qtd_clientes}</strong> clientes<br>• Receita: <strong>R$ {receita:,.2f}</strong> | Descontos: <strong>R$ {total_desconto:,.2f}</strong><br>• Ticket médio: <strong>R$ {ticket:,.2f}</strong></div>""", unsafe_allow_html=True)
-        else:
-            st.info("Nenhuma venda no período.")
-    else:
-        st.info("Nenhuma venda registrada.")
 
 # ─── ABA 3 — ESTOQUE ───
 with tab3:
