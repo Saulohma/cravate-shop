@@ -448,24 +448,43 @@ if admin:
     tab_admin1, tab_admin2 = st.tabs(["👥 Usuários", "🔄 Resetar Sistema"])
 
     # ─── TAB USUÁRIOS ───
-    with tab_admin1:
-        df_usuarios = carregar_usuarios()
-        for _, row in df_usuarios.iterrows():
-            if row['tipo'] == 'admin':
-                continue  # Não mostra opção de deletar o admin
-            col_u1, col_u2, col_u3, col_u4 = st.columns([2, 2, 2, 1])
-            col_u1.write(f"**{row['nome']}**")
-            col_u2.write(row['email'])
-            col_u3.write(row['tipo'])
-            if col_u4.button("🗑️", key=f"del_user_{row['id']}"):
-                if deletar_usuario(int(row['id'])):
-                    st.success(f"Usuário {row['nome']} deletado!")
-                    st.rerun()
-                else:
-                    st.error("Erro ao deletar usuário.")
+with tab_admin1:
+    df_usuarios = carregar_usuarios()
+    for _, row in df_usuarios.iterrows():
+        if row['tipo'] == 'admin':
+            continue
+        col_u1, col_u2, col_u3, col_u4, col_u5 = st.columns([2, 2, 2, 1.5, 1.5])
+        col_u1.write(f"**{row['nome']}**")
+        col_u2.write(row['email'])
+        col_u3.write(row['tipo'])
 
-        if len(df_usuarios) == 0:
-            st.info("Nenhum usuário cadastrado.")
+        # Trava: input de confirmação
+        confirm_key = f"conf_del_{row['id']}"
+        if st.session_state.get(confirm_key, False):
+            col_u4.write("Digite DELETAR")
+            conf_input = col_u4.text_input("", placeholder="DELETAR", key=f"inp_del_{row['id']}", label_visibility="collapsed")
+            if col_u5.button("🗑️", key=f"btn_del_{row['id']}"):
+                if conf_input == "DELETAR":
+                    if deletar_usuario(int(row['id'])):
+                        st.success(f"✅ Usuário {row['nome']} deletado!")
+                        st.session_state[confirm_key] = False
+                        st.rerun()
+                    else:
+                        st.error("Erro ao deletar usuário.")
+                else:
+                    st.error("Digite 'DELETAR' para confirmar.")
+            # Botão cancelar
+            if col_u5.button("✖️", key=f"cancel_del_{row['id']}"):
+                st.session_state[confirm_key] = False
+                st.rerun()
+        else:
+            if col_u4.button("🗑️ Deletar", key=f"btn_start_del_{row['id']}"):
+                st.session_state[confirm_key] = True
+                st.rerun()
+            col_u5.write("")
+
+    if len(df_usuarios) == 0:
+        st.info("Nenhum usuário cadastrado.")
 
     # ─── TAB RESET ───
     with tab_admin2:
