@@ -29,7 +29,14 @@ def get_engine():
     return create_engine(conn_str, pool_pre_ping=True, pool_recycle=300)
 
 def get_conn():
-    return get_engine().connect()
+    engine = get_engine()
+    return engine.connect()
+
+def get_engine():
+    db_url = os.environ.get("DATABASE_URL") or st.secrets["neon"]["connection_string"]
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    return create_engine(db_url)
 
 # ═══════════════════════════════════════════
 # FUNÇÕES DE LOGIN
