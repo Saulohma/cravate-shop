@@ -665,6 +665,93 @@ with tab2:
                 tooltip=['data_dia', 'valor_final']
             ).properties(height=300)
             st.altair_chart(chart, use_container_width=True)
+                # ─── RANKING DE PRODUTOS ───
+    st.markdown("### 🏆 Ranking de Produtos")
+    
+    def parse_itens(itens_str):
+        """Extrai produtos e quantidades do formato 'Produto xQtd (R$ X.XX)'"""
+        resultados = []
+        if not itens_str:
+            return resultados
+        for item in itens_str.split(" | "):
+            item = item.strip()
+            if " x" in item:
+                parts = item.split(" x")
+                if len(parts) == 2:
+                    produto = parts[0].strip()
+                    qtd_str = parts[1].split(" (")[0].strip()
+                    try:
+                        resultados.append({"produto": produto, "quantidade": int(qtd_str)})
+                    except:
+                        pass
+        return resultados
+    
+    todos_itens = []
+    for _, row in df_filtro.iterrows():
+        todos_itens.extend(parse_itens(row['itens']))
+    
+    if todos_itens:
+        df_itens = pd.DataFrame(todos_itens)
+        df_ranking = df_itens.groupby("produto")["quantidade"].sum().reset_index()
+        df_ranking = df_ranking.sort_values("quantidade", ascending=False)
+        
+        # Destaque
+        top = df_ranking.iloc[0]
+        st.markdown(f"""<div class="cliente-card"><strong>🥇 Mais Vendido: {top['produto']}</strong> — {int(top['quantidade'])} unidades</div>""", unsafe_allow_html=True)
+        
+        # Gráfico
+        st.altair_chart(alt.Chart(df_ranking.head(10)).mark_bar(color='#10b981').encode(
+            x=alt.X('quantidade:Q', title='Unidades Vendidas'),
+            y=alt.Y('produto:N', title='', sort='-x'),
+            tooltip=['produto', 'quantidade']
+        ).properties(height=300), use_container_width=True)
+        
+        st.dataframe(df_ranking, use_container_width=True, hide_index=True)
+    else:
+        st.info("Sem dados de produtos para o período selecionado.")
+    
+    # ─── RANKING DE CLIENTES ───
+    st.markdown("### 👑 Ranking de Clientes")
+    
+    df_rank_clientes = df_filtro.groupby('cliente_nome').agg(
+        Compras=('id', 'count'),
+        Itens=('quantidade_total', 'sum'),
+        Total_Gasto=('valor_final', 'sum')
+    ).sort_values('Total_Gasto', ascending=False).reset_index()
+    
+    if not df_rank_clientes.empty:
+        top_cli = df_rank_clientes.iloc[0]
+        st.markdown(f"""<div class="cliente-card"><strong>🏆 Cliente Destaque: {top_cli['cliente_nome']}</strong> — {int(top_cli['Compras'])} compras | R$ {top_cli['Total_Gasto']:,.2f}</div>""", unsafe_allow_html=True)
+        
+        st.altair_chart(alt.Chart(df_rank_clientes.head(10)).mark_bar(color='#8b5cf6').encode(
+            x=alt.X('Total_Gasto:Q', title='Total Gasto (R$)'),
+            y=alt.Y('cliente_nome:N', title='', sort='-x'),
+            tooltip=['cliente_nome', 'Compras', 'Total_Gasto']
+        ).properties(height=300), use_container_width=True)
+        
+        st.dataframe(df_rank_clientes, use_container_width=True, hide_index=True)
+    else:
+        st.info("Sem dados de clientes para o período selecionado.")
+    
+    # ─── DISTRIBUIÇÃO POR CATEGORIA ───
+    st.markdown("### 📊 Distribuição por Categoria")
+    
+    if todos_itens:
+        df_prod_map = df_produtos[['nome', 'categoria']].set_index('nome')
+        categorias = []
+        for item in todos_itens:
+            cat = df_prod_map.loc[item['produto'], 'categoria'] if item['produto'] in df_prod_map.index else "Outros"
+            categorias.append({"categoria": cat, "quantidade": item['quantidade']})
+        
+        df_cat = pd.DataFrame(categorias).groupby("categoria")["quantidade"].sum().reset_index().sort_values("quantidade", ascending=False)
+        
+        st.altair_chart(alt.Chart(df_cat).mark_arc().encode(
+            theta=alt.Theta('quantidade:Q'),
+            color=alt.Color('categoria:N', legend=alt.Legend(title="Categoria")),
+            tooltip=['categoria', 'quantidade']
+        ).properties(height=300), use_container_width=True)
+    else:
+        st.info("Sem dados para o período selecionado.")
 
 # ─── ABA 3 — ESTOQUE ───
 with tab3:
