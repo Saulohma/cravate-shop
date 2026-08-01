@@ -439,7 +439,8 @@ if st.session_state.usuario is None:
     
     st.stop()
 
-
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1,2,1])
