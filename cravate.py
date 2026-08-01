@@ -449,7 +449,7 @@ if not st.session_state.logged_in:
             user = autenticar_usuario(email, senha)
             if user:
                 st.session_state.logged_in = True
-                st.session_state.user = user
+                st.session_state.user = user      # ← ADICIONA AQUI
                 st.rerun()
             else:
                 st.error("Credenciais inválidas")
