@@ -439,21 +439,30 @@ if st.session_state.usuario is None:
     
     st.stop()
 
+# ═══════════════════════════════════════════
+# LOGIN
+# ═══════════════════════════════════════════
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # ... formulário de login ...
-        if submit:
-            user = autenticar_usuario(email, senha)
-            if user:
-                st.session_state.logged_in = True
-                st.session_state.user = user      # ← ADICIONA AQUI
-                st.rerun()
-            else:
-                st.error("Credenciais inválidas")
+        st.markdown("<h1 style='text-align: center;'>👔 Cravates</h1>", unsafe_allow_html=True)
+        with st.form("login_form"):
+            email = st.text_input("E-mail")
+            senha = st.text_input("Senha", type="password")
+            submit = st.form_submit_button("Entrar")
+
+    if submit:
+        user = autenticar_usuario(email, senha)
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.user = user
+            st.rerun()
+        else:
+            st.error("Credenciais inválidas")
+    st.stop()
 else:
     # ═══════════════════════════════════════════
     # SISTEMA PRINCIPAL (logado)
