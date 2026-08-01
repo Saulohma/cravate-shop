@@ -442,13 +442,11 @@ if st.session_state.usuario is None:
 # ═══════════════════════════════════════════
 # SISTEMA PRINCIPAL (logado)
 # ═══════════════════════════════════════════
-usuario = st.session_state.usuario
 is_admin = st.session_state.user['tipo'] == 'admin'
+
 # ═══════════════════════════════════════════
 # ADMINISTRAÇÃO (só para admin)
 # ═══════════════════════════════════════════
-# ADMINISTRAÇÃO (só para admin)
-#
 if is_admin:
     st.markdown("---")
     st.markdown("### ⚙️ Administração")
