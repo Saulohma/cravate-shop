@@ -674,22 +674,25 @@ with tab2:
     else:
         st.info("Sem dados de produtos para o período selecionado.")
 
-    # ─── RANKING DE CLIENTES ───
+        # ─── RANKING DE CLIENTES ───
     st.markdown("### 👑 Ranking de Clientes")
-    df_rank_clientes = df_filtro.groupby('cliente_nome').agg(
-        Compras=('id', 'count'),
-        Itens=('quantidade_total', 'sum'),
-        Total_Gasto=('valor_final', 'sum')
-    ).sort_values('Total_Gasto', ascending=False).reset_index()
-    if not df_rank_clientes.empty:
-        top_cli = df_rank_clientes.iloc[0]
-        st.markdown(f"""<div class="cliente-card"><strong>🏆 Cliente Destaque: {top_cli['cliente_nome']}</strong> — {int(top_cli['Compras'])} compras | R$ {top_cli['Total_Gasto']:,.2f}</div>""", unsafe_allow_html=True)
-        st.altair_chart(alt.Chart(df_rank_clientes.head(10)).mark_bar(color='#8b5cf6').encode(
-            x=alt.X('Total_Gasto:Q', title='Total Gasto (R$)'),
-            y=alt.Y('cliente_nome:N', title='', sort='-x'),
-            tooltip=['cliente_nome', 'Compras', 'Total_Gasto']
-        ).properties(height=300), use_container_width=True)
-        st.dataframe(df_rank_clientes, use_container_width=True, hide_index=True)
+    if not df_filtro.empty and 'cliente_nome' in df_filtro.columns:
+        df_rank_clientes = df_filtro.groupby('cliente_nome').agg(
+            Compras=('id', 'count'),
+            Itens=('quantidade_total', 'sum'),
+            Total_Gasto=('valor_final', 'sum')
+        ).sort_values('Total_Gasto', ascending=False).reset_index()
+        if not df_rank_clientes.empty:
+            top_cli = df_rank_clientes.iloc[0]
+            st.markdown(f"""<div class="cliente-card"><strong>🏆 Cliente Destaque: {top_cli['cliente_nome']}</strong> — {int(top_cli['Compras'])} compras | R$ {top_cli['Total_Gasto']:,.2f}</div>""", unsafe_allow_html=True)
+            st.altair_chart(alt.Chart(df_rank_clientes.head(10)).mark_bar(color='#8b5cf6').encode(
+                x=alt.X('Total_Gasto:Q', title='Total Gasto (R$)'),
+                y=alt.Y('cliente_nome:N', title='', sort='-x'),
+                tooltip=['cliente_nome', 'Compras', 'Total_Gasto']
+            ).properties(height=300), use_container_width=True)
+            st.dataframe(df_rank_clientes, use_container_width=True, hide_index=True)
+        else:
+            st.info("Sem dados de clientes para o período selecionado.")
     else:
         st.info("Sem dados de clientes para o período selecionado.")
 
