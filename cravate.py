@@ -16,6 +16,7 @@ st.set_page_config(page_title="Cravate Shop - Gestão de Vendas", layout="wide")
 # ═══════════════════════════════════════════
 # CONEXÃO NEON (PostgreSQL)
 # ═══════════════════════════════════════════
+# CORREÇÃO 1: get_engine() definida UMA ÚNICA VEZ
 @st.cache_resource
 def get_engine():
     """Conecta ao Neon PostgreSQL via string de conexão"""
@@ -31,12 +32,6 @@ def get_engine():
 def get_conn():
     engine = get_engine()
     return engine.connect()
-
-def get_engine():
-    db_url = os.environ.get("DATABASE_URL") or st.secrets["neon"]["connection_string"]
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-    return create_engine(db_url)
 
 # ═══════════════════════════════════════════
 # FUNÇÕES DE LOGIN
@@ -61,7 +56,6 @@ def verificar_senha(senha, hash_completo):
 def init_usuarios():
     """Cria tabela de usuários e insere admin padrão"""
     conn = get_conn()
-
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS usuarios (
             id SERIAL PRIMARY KEY,
@@ -72,7 +66,6 @@ def init_usuarios():
             created_at TIMESTAMP DEFAULT NOW()
         )
     """))
-
     # Admin padrão — sempre garante que existe
     hash_admin = fazer_hash("admin123")
     conn.execute(
@@ -103,7 +96,6 @@ def autenticar(email, senha):
         {"email": email}
     ).fetchone()
     conn.close()
-    
     if resultado and verificar_senha(senha, resultado[2]):
         return {"id": resultado[0], "email": resultado[1], "nome": resultado[3], "tipo": resultado[4]}
     return False
@@ -129,7 +121,6 @@ def cadastrar_usuario(email, senha, nome, tipo="cliente"):
 # ═══════════════════════════════════════════
 def init_db():
     conn = get_conn()
-    
     # Produtos
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS produtos (
@@ -141,7 +132,6 @@ def init_db():
             estoque_minimo INTEGER DEFAULT 5
         )
     """))
-    
     # Vendas (com usuario_id para multitenant)
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS vendas (
@@ -156,7 +146,6 @@ def init_db():
             cliente_nome TEXT
         )
     """))
-    
     # Produtos iniciais
     resultado = conn.execute(text("SELECT COUNT(*) FROM produtos")).scalar()
     if resultado == 0:
@@ -176,7 +165,6 @@ def init_db():
                 text("INSERT INTO produtos (nome, preco, categoria, estoque, estoque_minimo) VALUES (:nome, :preco, :categoria, :estoque, :minimo)"),
                 {"nome": p[0], "preco": p[1], "categoria": p[2], "estoque": p[3], "minimo": p[4]}
             )
-    
     conn.commit()
     conn.close()
 
@@ -266,10 +254,8 @@ def resetar_sistema():
         # Limpa vendas e usuarios não-admin
         conn.execute(text("DELETE FROM vendas"))
         conn.execute(text("DELETE FROM usuarios WHERE tipo != 'admin'"))
-
         # ZERA o estoque de TODOS os produtos
         conn.execute(text("UPDATE produtos SET estoque = 0"))
-
         conn.commit()
         return True
     except:
@@ -277,7 +263,6 @@ def resetar_sistema():
         return False
     finally:
         conn.close()
-
 
 def carregar_usuarios():
     conn = get_conn()
@@ -365,11 +350,11 @@ st.markdown("""
 # ═══════════════════════════════════════════
 # INICIALIZAÇÃO
 # ═══════════════════════════════════════════
-
 init_db()
 init_usuarios()
+
 # ═══════════════════════════════════════════
-# TELA DE LOGIN
+# TELA DE LOGIN (ÚNICA — CORREÇÃO 2)
 # ═══════════════════════════════════════════
 if "usuario" not in st.session_state:
     st.session_state.usuario = None
@@ -383,10 +368,8 @@ if st.session_state.usuario is None:
             st.markdown("<div class='login-box'>", unsafe_allow_html=True)
             st.markdown("<div class='login-title'>🧣 Cravate Shop</div>", unsafe_allow_html=True)
             st.markdown("<p style='text-align:center;color:#94a3b8;margin-bottom:25px;'>Faça login para continuar</p>", unsafe_allow_html=True)
-            
             email = st.text_input("📧 Email", placeholder="seu@email.com")
             senha = st.text_input("🔒 Senha", type="password", placeholder="Digite sua senha")
-            
             if st.button("Entrar", type="primary", use_container_width=True):
                 if email and senha:
                     usuario = autenticar(email, senha)
@@ -397,25 +380,20 @@ if st.session_state.usuario is None:
                         st.error("Email ou senha inválidos!")
                 else:
                     st.warning("Preencha email e senha.")
-            
             st.markdown("---")
             if st.button("📝 Criar conta", use_container_width=True):
                 st.session_state.pagina = "cadastro"
                 st.rerun()
-            
             st.markdown("</div>", unsafe_allow_html=True)
-    
     elif st.session_state.pagina == "cadastro":
         col_centro = st.columns([1, 1, 1])[1]
         with col_centro:
             st.markdown("<div class='login-box'>", unsafe_allow_html=True)
             st.markdown("<div class='login-title'>📝 Criar Conta</div>", unsafe_allow_html=True)
-            
             nome = st.text_input("👤 Nome completo", placeholder="Seu nome")
             email = st.text_input("📧 Email", placeholder="seu@email.com")
             senha1 = st.text_input("🔒 Senha", type="password", placeholder="Mínimo 6 caracteres")
             senha2 = st.text_input("🔒 Confirmar senha", type="password", placeholder="Repita a senha")
-            
             if st.button("Cadastrar", type="primary", use_container_width=True):
                 if not nome or not email or not senha1:
                     st.warning("Preencha todos os campos!")
@@ -430,127 +408,26 @@ if st.session_state.usuario is None:
                         st.rerun()
                     else:
                         st.error("Email já cadastrado!")
-            
             if st.button("← Voltar ao login"):
                 st.session_state.pagina = "login"
                 st.rerun()
-            
             st.markdown("</div>", unsafe_allow_html=True)
-    
     st.stop()
 
 # ═══════════════════════════════════════════
-# LOGIN
+# SISTEMA PRINCIPAL (logado)
 # ═══════════════════════════════════════════
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+usuario = st.session_state.usuario
+admin = st.session_state.usuario['tipo'] == 'admin'
 
-if not st.session_state.logged_in:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<h1 style='text-align: center;'>👔 Cravates</h1>", unsafe_allow_html=True)
-        with st.form("login_form"):
-            email = st.text_input("E-mail")
-            senha = st.text_input("Senha", type="password")
-            submit = st.form_submit_button("Entrar")
-
-    if submit:
-        user = autenticar_usuario(email, senha)
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.user = user
-            st.rerun()
-        else:
-            st.error("Credenciais inválidas")
-    st.stop()
-else:
-    # ═══════════════════════════════════════════
-    # SISTEMA PRINCIPAL (logado)
-    # ═══════════════════════════════════════════
-    usuario = st.session_state.user
-    admin = st.session_state.user['tipo'] == 'admin'
-
-    st.sidebar.title(f"Olá, {usuario['nome']}")
-    if st.sidebar.button("Sair"):
-        st.session_state.logged_in = False
-        st.rerun()
-
-    # ═══════════════════════════════════════════
-    # ADMINISTRAÇÃO (só para admin)   ← 4 espaços, FORA do "Sair"
-    # ═══════════════════════════════════════════
-    if admin:
-        st.markdown("---")
-        st.markdown("### ⚙️ Administração")
-
-        tab_admin1, tab_admin2 = st.tabs(["🎥 Usuários", "🔄 Resetar Sistema"])
-
-        # ——— TAB USUÁRIOS ———
-        with tab_admin1:
-            df_usuarios = carregar_usuarios()
-            for _, row in df_usuarios.iterrows():
-                if row['tipo'] == 'admin':
-                    continue
-                col_u1, col_u2, col_u3, col_u4, col_u5 = st.columns([2, 2, 2, 1.5, 1.5])
-                col_u1.write(f"**{row['nome']}**")
-                col_u2.write(row['email'])
-                col_u3.write(row['tipo'])
-
-                # Trava: input de confirmação
-                confirm_key = f"conf_del_{row['id']}"
-                if st.session_state.get(confirm_key, False):
-                    col_u4.write("Digite DELETAR")
-                    conf_input = col_u4.text_input("", placeholder="DELETAR", key=f"inp_del_{row['id']}", label_visibility="collapsed")
-                    if col_u5.button("🗑️", key=f"btn_del_{row['id']}"):
-                        if conf_input == "DELETAR":
-                            if deletar_usuario(int(row['id'])):
-                                st.success(f"✅ Usuário {row['nome']} deletado!")
-                                st.session_state[confirm_key] = False
-                                st.rerun()
-                            else:
-                                st.error("Erro ao deletar usuário.")
-                        else:
-                            st.error("Digite 'DELETAR' para confirmar.")
-                    if col_u5.button("✖️", key=f"cancel_del_{row['id']}"):
-                        st.session_state[confirm_key] = False
-                        st.rerun()
-                else:
-                    if col_u4.button("🗑️ Deletar", key=f"btn_start_del_{row['id']}"):
-                        st.session_state[confirm_key] = True
-                        st.rerun()
-                    col_u5.write("")
-
-            if len(df_usuarios) == 0:
-                st.info("Nenhum usuário cadastrado.")
-
-
-
-
-    # ─── TAB RESET ───
-    with tab_admin2:
-        st.warning("⚠️ Isso vai apagar TODOS os dados do sistema!")
-        st.markdown("Será mantido apenas o **admin** e os **produtos** com estoque inicial.")
-        st.markdown("Vendas, usuários não-admin e registros serão **permanentemente removidos**.")
-
-        confirmar = st.text_input("Digite 'RESET' para confirmar:", placeholder="RESET")
-        if st.button("🔄 Resetar Sistema", type="primary", use_container_width=True):
-            if confirmar == "RESET":
-                if resetar_sistema():
-                    st.success("✅ Sistema resetado com sucesso! Pronto para novo cliente.")
-                    st.rerun()
-                else:
-                    st.error("Erro ao resetar sistema.")
-            else:
-                st.error("Digite 'RESET' para confirmar.")
 # Sidebar
 st.sidebar.markdown("## 🧣 Cravate Shop")
 st.sidebar.markdown(f"<span class='{'admin-badge' if admin else 'user-badge'}'>{'🔹 ADMIN' if admin else '👤 Cliente'}</span>", unsafe_allow_html=True)
 st.sidebar.markdown(f"**{usuario['nome']}**")
 st.sidebar.markdown(f"📧 {usuario['email']}")
-
 if st.sidebar.button("🚪 Sair", use_container_width=True):
     st.session_state.usuario = None
     st.rerun()
-
 st.sidebar.markdown("---")
 
 # Carrega dados (se admin, vê tudo; se cliente, vê só o dele)
@@ -575,11 +452,73 @@ for nome, data_evento, dias, _ in proximas_5:
     elif dias == 0: st.sidebar.markdown(f"🔴 **{nome}** — É HOJE!")
     elif dias <= 15: st.sidebar.markdown(f"🟡 **{nome}** — em {dias} dias")
     else: st.sidebar.markdown(f"🟢 **{nome}** — em {dias} dias")
-
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Produtos")
 for _, row in df_produtos.iterrows():
     st.sidebar.markdown(f"- **{row['nome']}** — R$ {row['preco']:,.2f} — Est: {int(row['estoque'])}un")
+
+# ═══════════════════════════════════════════
+# ADMINISTRAÇÃO (só para admin)
+# ═══════════════════════════════════════════
+if admin:
+    st.markdown("---")
+    st.markdown("### ⚙️ Administração")
+
+    tab_admin1, tab_admin2 = st.tabs(["👥 Usuários", "🔄 Resetar Sistema"])
+
+    # ——— TAB USUÁRIOS ———
+    with tab_admin1:
+        df_usuarios = carregar_usuarios()
+        for _, row in df_usuarios.iterrows():
+            if row['tipo'] == 'admin':
+                continue
+            col_u1, col_u2, col_u3, col_u4, col_u5 = st.columns([2, 2, 2, 1.5, 1.5])
+            col_u1.write(f"**{row['nome']}**")
+            col_u2.write(row['email'])
+            col_u3.write(row['tipo'])
+
+            # Trava: input de confirmação
+            confirm_key = f"conf_del_{row['id']}"
+            if st.session_state.get(confirm_key, False):
+                col_u4.write("Digite DELETAR")
+                conf_input = col_u4.text_input("", placeholder="DELETAR", key=f"inp_del_{row['id']}", label_visibility="collapsed")
+                if col_u5.button("🗑️", key=f"btn_del_{row['id']}"):
+                    if conf_input == "DELETAR":
+                        if deletar_usuario(int(row['id'])):
+                            st.success(f"✅ Usuário {row['nome']} deletado!")
+                            st.session_state[confirm_key] = False
+                            st.rerun()
+                        else:
+                            st.error("Erro ao deletar usuário.")
+                    else:
+                        st.error("Digite 'DELETAR' para confirmar.")
+                if col_u5.button("✖️", key=f"cancel_del_{row['id']}"):
+                    st.session_state[confirm_key] = False
+                    st.rerun()
+            else:
+                if col_u4.button("🗑️ Deletar", key=f"btn_start_del_{row['id']}"):
+                    st.session_state[confirm_key] = True
+                    st.rerun()
+                col_u5.write("")
+
+        if len(df_usuarios) == 0:
+            st.info("Nenhum usuário cadastrado.")
+
+    # ——— TAB RESET (CORREÇÃO 4: dentro do if admin) ———
+    with tab_admin2:
+        st.warning("⚠️ Isso vai apagar TODOS os dados do sistema!")
+        st.markdown("Será mantido apenas o **admin** e os **produtos** com estoque inicial.")
+        st.markdown("Vendas, usuários não-admin e registros serão **permanentemente removidos**.")
+        confirmar = st.text_input("Digite 'RESET' para confirmar:", placeholder="RESET")
+        if st.button("🔄 Resetar Sistema", type="primary", use_container_width=True):
+            if confirmar == "RESET":
+                if resetar_sistema():
+                    st.success("✅ Sistema resetado com sucesso! Pronto para novo cliente.")
+                    st.rerun()
+                else:
+                    st.error("Erro ao resetar sistema.")
+            else:
+                st.error("Digite 'RESET' para confirmar.")
 
 # ═══════════════════════════════════════════
 # ABAS
@@ -643,20 +582,17 @@ with tab1:
 with tab2:
     st.markdown("### Dashboard Executivo")
     df_v = df_vendas.copy()
+    # CORREÇÃO 5: df_filtro SEMPRE existe
     df_filtro = pd.DataFrame()
-
     if not df_v.empty:
         df_v['data'] = pd.to_datetime(df_v['data'])
         df_v['mes'] = df_v['data'].dt.month
         df_v['ano'] = df_v['data'].dt.year
-
         col_f1, col_f2 = st.columns(2)
         anos_disponiveis = sorted(df_v['ano'].unique(), reverse=True)
         ano_sel = col_f1.selectbox("Ano", anos_disponiveis)
         mes_sel = col_f2.selectbox("Mês", range(1, 13), index=datetime.now().month - 1)
-
         df_filtro = df_v[(df_v['ano'] == ano_sel) & (df_v['mes'] == mes_sel)]
-
         if not df_filtro.empty:
             qtd_vendas = len(df_filtro)
             qtd_itens = int(df_filtro['quantidade_total'].sum())
@@ -664,14 +600,11 @@ with tab2:
             qtd_clientes = df_filtro['cliente_nome'].nunique()
             ticket = receita / qtd_vendas if qtd_vendas > 0 else 0
             total_desconto = float(df_filtro['desconto'].sum())
-
             meta_vendas, meta_receita, meta_ticket, meta_clientes, meta_itens = 50, 2000.0, 80.0, 30, 100
-
             def status(v, m):
                 if v >= m: return "verde"
                 if v >= m * 0.7: return "amarelo"
                 return "vermelho"
-
             k1, k2, k3, k4, k5 = st.columns(5)
             cards = [
                 (k1, "Vendas no Mês", qtd_vendas, meta_vendas),
@@ -682,13 +615,10 @@ with tab2:
             ]
             vals = [qtd_vendas, qtd_itens, receita, ticket, qtd_clientes]
             metas = [meta_vendas, meta_itens, meta_receita, meta_ticket, meta_clientes]
-
             for (col, label, val, meta), v, m in zip(cards, vals, metas):
                 sts = status(v, m)
                 col.markdown(f"""<div class="card {sts}"><div class="kpi-label">{label}</div><div class="kpi-value">{val}</div><div class="kpi-meta">Meta: {meta}</div><div class="semaforo {sts}">{sts.upper()}</div></div>""", unsafe_allow_html=True)
-
             st.markdown(f"<p style='color:#94a3b8;'>Desconto total: <strong style='color:#ef4444;'>R$ {total_desconto:,.2f}</strong> | Média de itens por venda: <strong>{qtd_itens/qtd_vendas:.1f}</strong></p>", unsafe_allow_html=True)
-
             st.markdown("### 📈 Receita Diária")
             df_filtro['data_dia'] = pd.to_datetime(df_filtro['data']).dt.strftime('%Y-%m-%d')
             df_dia = df_filtro.groupby('data_dia')['valor_final'].sum().reset_index()
@@ -698,9 +628,9 @@ with tab2:
                 tooltip=['data_dia', 'valor_final']
             ).properties(height=300)
             st.altair_chart(chart, use_container_width=True)
-                # ─── RANKING DE PRODUTOS ───
+
+    # ─── RANKING DE PRODUTOS (CORREÇÃO 6: indentação corrigida) ───
     st.markdown("### 🏆 Ranking de Produtos")
-    
     def parse_itens(itens_str):
         """Extrai produtos e quantidades do formato 'Produto xQtd (R$ X.XX)'"""
         resultados = []
@@ -718,66 +648,54 @@ with tab2:
                     except:
                         pass
         return resultados
-    
     todos_itens = []
     for _, row in df_filtro.iterrows():
         todos_itens.extend(parse_itens(row['itens']))
-    
     if todos_itens:
         df_itens = pd.DataFrame(todos_itens)
         df_ranking = df_itens.groupby("produto")["quantidade"].sum().reset_index()
         df_ranking = df_ranking.sort_values("quantidade", ascending=False)
-        
         # Destaque
         top = df_ranking.iloc[0]
         st.markdown(f"""<div class="cliente-card"><strong>🥇 Mais Vendido: {top['produto']}</strong> — {int(top['quantidade'])} unidades</div>""", unsafe_allow_html=True)
-        
         # Gráfico
         st.altair_chart(alt.Chart(df_ranking.head(10)).mark_bar(color='#10b981').encode(
             x=alt.X('quantidade:Q', title='Unidades Vendidas'),
             y=alt.Y('produto:N', title='', sort='-x'),
             tooltip=['produto', 'quantidade']
         ).properties(height=300), use_container_width=True)
-        
         st.dataframe(df_ranking, use_container_width=True, hide_index=True)
     else:
         st.info("Sem dados de produtos para o período selecionado.")
-    
+
     # ─── RANKING DE CLIENTES ───
     st.markdown("### 👑 Ranking de Clientes")
-    
     df_rank_clientes = df_filtro.groupby('cliente_nome').agg(
         Compras=('id', 'count'),
         Itens=('quantidade_total', 'sum'),
         Total_Gasto=('valor_final', 'sum')
     ).sort_values('Total_Gasto', ascending=False).reset_index()
-    
     if not df_rank_clientes.empty:
         top_cli = df_rank_clientes.iloc[0]
         st.markdown(f"""<div class="cliente-card"><strong>🏆 Cliente Destaque: {top_cli['cliente_nome']}</strong> — {int(top_cli['Compras'])} compras | R$ {top_cli['Total_Gasto']:,.2f}</div>""", unsafe_allow_html=True)
-        
         st.altair_chart(alt.Chart(df_rank_clientes.head(10)).mark_bar(color='#8b5cf6').encode(
             x=alt.X('Total_Gasto:Q', title='Total Gasto (R$)'),
             y=alt.Y('cliente_nome:N', title='', sort='-x'),
             tooltip=['cliente_nome', 'Compras', 'Total_Gasto']
         ).properties(height=300), use_container_width=True)
-        
         st.dataframe(df_rank_clientes, use_container_width=True, hide_index=True)
     else:
         st.info("Sem dados de clientes para o período selecionado.")
-    
+
     # ─── DISTRIBUIÇÃO POR CATEGORIA ───
     st.markdown("### 📊 Distribuição por Categoria")
-    
     if todos_itens:
         df_prod_map = df_produtos[['nome', 'categoria']].set_index('nome')
         categorias = []
         for item in todos_itens:
             cat = df_prod_map.loc[item['produto'], 'categoria'] if item['produto'] in df_prod_map.index else "Outros"
             categorias.append({"categoria": cat, "quantidade": item['quantidade']})
-        
         df_cat = pd.DataFrame(categorias).groupby("categoria")["quantidade"].sum().reset_index().sort_values("quantidade", ascending=False)
-        
         st.altair_chart(alt.Chart(df_cat).mark_arc().encode(
             theta=alt.Theta('quantidade:Q'),
             color=alt.Color('categoria:N', legend=alt.Legend(title="Categoria")),
@@ -790,33 +708,24 @@ with tab2:
 with tab3:
     st.markdown("### 📦 Controle de Estoque")
     df_produtos = carregar_produtos()
-
     produtos_criticos = df_produtos[df_produtos['estoque'] == 0]
     produtos_baixa = df_produtos[df_produtos['estoque'] <= df_produtos['estoque_minimo']]
     produtos_ok = df_produtos[df_produtos['estoque'] > df_produtos['estoque_minimo']]
-
     # Valor total investido em estoque
     valor_investido = (df_produtos['preco'] * df_produtos['estoque']).sum()
-
     col_rec1, col_rec2, col_rec3, col_rec4 = st.columns(4)
-
     col_rec1.markdown(f"""<div class="card vermelho"><div class="kpi-label">🔴 Em Falta</div><div class="kpi-value">{len(produtos_criticos)}</div><div class="kpi-meta">Estoque zerado</div></div>""", unsafe_allow_html=True)
-
     # Nomes dos produtos em baixa
     nomes_baixa = ", ".join(produtos_baixa['nome'].tolist()) if len(produtos_baixa) > 0 else "—"
     col_rec2.markdown(f"""<div class="card amarelo"><div class="kpi-label">🟡 Em Baixa</div><div class="kpi-value">{len(produtos_baixa)}</div><div class="kpi-meta">Abaixo do mínimo</div><div style="font-size:0.7rem;color:#fbbf24;margin-top:4px;">{nomes_baixa}</div></div>""", unsafe_allow_html=True)
-
     col_rec3.markdown(f"""<div class="card verde"><div class="kpi-label">🟢 Estoque OK</div><div class="kpi-value">{len(produtos_ok)}</div><div class="kpi-meta">Dentro do esperado</div></div>""", unsafe_allow_html=True)
-
     col_rec4.markdown(f"""<div class="card azul"><div class="kpi-label">💰 Valor em Estoque</div><div class="kpi-value" style="font-size:1.1rem;">R$ {valor_investido:,.2f}</div><div class="kpi-meta">Total investido</div></div>""", unsafe_allow_html=True)
-
     # Botão recalcular abaixo dos cards
     st.markdown("")
     if st.button("🔄 Recalcular Mínimos", use_container_width=True):
         atualizar_estoque_minimo_automatico()
         st.success("Mínimos recalculados!")
         st.rerun()
-
     st.markdown("### Produtos")
     for _, row in df_produtos.iterrows():
         estoque = int(row['estoque']); minimo = int(row['estoque_minimo']); preco = float(row['preco'])
@@ -834,7 +743,6 @@ with tab3:
                     editar_produto(int(row['id']), nova_qtd, novo_min, novo_preco)
                     st.success("Atualizado!")
                     st.rerun()
-
     produtos_baixa = df_produtos[df_produtos['estoque'] <= df_produtos['estoque_minimo']]
     if len(produtos_baixa) > 0:
         st.markdown("### 🛒 Sugestão de Compra")
@@ -842,6 +750,7 @@ with tab3:
             est = int(row['estoque']); min_ = int(row['estoque_minimo'])
             sug = min_ * 3 - est
             st.markdown(f"""<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #334155;color:#fff;"><span><strong>{row['nome']}</strong> ({row['categoria']})</span><span>Est: {est}un | Mín: {min_}un | <strong style="color:#fbbf24;">Comprar: {sug}un</strong></span></div>""", unsafe_allow_html=True)
+
 # ─── ABA 4 — DATAS E CLIENTES ───
 with tab4:
     st.markdown("### 📅 Calendário Comercial")
@@ -853,7 +762,6 @@ with tab4:
         elif dias <= 30: emoji, label = "🟢", f"em {dias} dia(s)"
         else: emoji, label = "🔵", f"em {dias} dia(s)"
         st.markdown(f"""<div class="data-card"><div style="display:flex;justify-content:space-between;"><div><strong>{emoji} {nome}</strong> — {data_evento.strftime('%d/%m/%Y')}</div><div style="color:#fbbf24;font-weight:700;">{label}</div></div><div style="margin-top:5px;font-size:0.85rem;color:#94a3b8;">💡 {sugestao}</div></div>""", unsafe_allow_html=True)
-
     st.markdown("---")
     st.markdown("### 👥 Insights de Clientes")
     if not df_vendas.empty:
@@ -864,7 +772,6 @@ with tab4:
         if not clientes.empty:
             top = clientes.iloc[0]
             st.markdown(f"""<div class="cliente-card"><strong>🏆 Destaque: {top['cliente_nome']}</strong> — {int(top['Compras'])} compras, R$ {top['Total_Gasto']:,.2f}</div>""", unsafe_allow_html=True)
-
         hoje = date.today()
         ultima = df_vc.groupby('cliente_nome')['data'].max().reset_index()
         ultima['dias'] = (pd.to_datetime(hoje) - pd.to_datetime(ultima['data'])).dt.days
@@ -880,7 +787,6 @@ with tab4:
 if admin:
     with tab5:
         st.markdown("### 👥 Gerenciar Usuários")
-        
         col_u1, col_u2 = st.columns([2, 1])
         with col_u1:
             st.markdown("**Usuários cadastrados:**")
@@ -889,7 +795,6 @@ if admin:
                 df_exibir = df_usuarios.copy()
                 df_exibir['tipo'] = df_exibir['tipo'].apply(lambda x: "🔹 Admin" if x == "admin" else "👤 Cliente")
                 st.dataframe(df_exibir, use_container_width=True, hide_index=True)
-        
         with col_u2:
             st.markdown("**Cadastrar novo usuário:**")
             with st.form("novo_usuario"):
@@ -906,7 +811,6 @@ if admin:
                             st.error("Email já existe!")
                     else:
                         st.warning("Preencha todos os campos!")
-        
         # Totais
         st.markdown("---")
         st.markdown("### 📊 Estatísticas")
