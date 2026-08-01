@@ -16,17 +16,23 @@ st.set_page_config(page_title="Cravate Shop - Gestão de Vendas", layout="wide")
 # ═══════════════════════════════════════════
 # CONEXÃO NEON (PostgreSQL)
 # ═══════════════════════════════════════════
-# CORREÇÃO 1: get_engine() definida UMA ÚNICA VEZ
 @st.cache_resource
 def get_engine():
-    """Conecta ao Neon PostgreSQL via string de conexão"""
-    if "neon" in st.secrets and "connection_string" in st.secrets["neon"]:
-        conn_str = st.secrets["neon"]["connection_string"]
-    else:
-        conn_str = os.environ.get("NEON_CONNECTION_STRING")
-        if not conn_str:
-            st.error("❌ String de conexão do Neon não encontrada!")
-            st.stop()
+    """Conecta ao banco via variável de ambiente (Render) ou secrets.toml"""
+    # 1ª opção: variável de ambiente configurada no Render
+    conn_str = os.environ.get("DATABASE_URL")
+
+    # 2ª opção: arquivo .streamlit/secrets.toml (só tenta se existir)
+    if not conn_str:
+        try:
+            conn_str = st.secrets["neon"]["connection_string"]
+        except Exception:
+            conn_str = None
+
+    if not conn_str:
+        st.error("❌ String de conexão do banco não encontrada!")
+        st.stop()
+
     return create_engine(conn_str, pool_pre_ping=True, pool_recycle=300)
 
 def get_conn():
