@@ -442,8 +442,8 @@ if st.session_state.usuario is None:
 # ═══════════════════════════════════════════
 # SISTEMA PRINCIPAL (logado)
 # ═══════════════════════════════════════════
-
-admin = st.session_state.usuario['tipo'] == 'admin'
+usuario = st.session_state.user
+admin = st.session_state.user['tipo'] == 'admin'
 # ═══════════════════════════════════════════
 # ADMINISTRAÇÃO (só para admin)
 # ═══════════════════════════════════════════
@@ -610,7 +610,7 @@ with tab2:
     st.markdown("### Dashboard Executivo")
     df_v = df_vendas.copy()
     df_filtro = pd.DataFrame()
-    
+
     if not df_v.empty:
         df_v['data'] = pd.to_datetime(df_v['data'])
         df_v['mes'] = df_v['data'].dt.month
