@@ -442,12 +442,12 @@ if st.session_state.usuario is None:
 # ═══════════════════════════════════════════
 # SISTEMA PRINCIPAL (logado)
 # ═══════════════════════════════════════════
-is_admin = st.session_state.user['tipo'] == 'admin'
 
+admin = st.session_state.usuario['tipo'] == 'admin'
 # ═══════════════════════════════════════════
 # ADMINISTRAÇÃO (só para admin)
 # ═══════════════════════════════════════════
-if is_admin:
+if admin:
     st.markdown("---")
     st.markdown("### ⚙️ Administração")
 
@@ -609,6 +609,7 @@ with tab1:
 with tab2:
     st.markdown("### Dashboard Executivo")
     df_v = df_vendas.copy()
+    df_filtro = pd.DataFrame()
     
     if not df_v.empty:
         df_v['data'] = pd.to_datetime(df_v['data'])
