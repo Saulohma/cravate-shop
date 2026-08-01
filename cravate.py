@@ -443,8 +443,7 @@ if st.session_state.usuario is None:
 # SISTEMA PRINCIPAL (logado)
 # ═══════════════════════════════════════════
 usuario = st.session_state.usuario
-admin = usuario["tipo"] == "admin"
-
+is_admin = st.session_state.user['tipo'] == 'admin'
 # ═══════════════════════════════════════════
 # ADMINISTRAÇÃO (só para admin)
 # ═══════════════════════════════════════════
