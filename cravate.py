@@ -448,14 +448,15 @@ admin = usuario["tipo"] == "admin"
 # ═══════════════════════════════════════════
 # ADMINISTRAÇÃO (só para admin)
 # ═══════════════════════════════════════════
-if admin:
+# ADMINISTRAÇÃO (só para admin)
+#
+if is_admin:
     st.markdown("---")
     st.markdown("### ⚙️ Administração")
 
-    tab_admin1, tab_admin2 = st.tabs(["👥 Usuários", "🔄 Resetar Sistema"])
+    tab_admin1, tab_admin2 = st.tabs(["🎥 Usuários", "🔄 Resetar Sistema"])
 
-    # ─── TAB USUÁRIOS ───
-if is_admin:
+    # ——— TAB USUÁRIOS ———
     with tab_admin1:
         df_usuarios = carregar_usuarios()
         for _, row in df_usuarios.iterrows():
@@ -481,7 +482,6 @@ if is_admin:
                             st.error("Erro ao deletar usuário.")
                     else:
                         st.error("Digite 'DELETAR' para confirmar.")
-                # Botão cancelar
                 if col_u5.button("✖️", key=f"cancel_del_{row['id']}"):
                     st.session_state[confirm_key] = False
                     st.rerun()
@@ -491,8 +491,8 @@ if is_admin:
                     st.rerun()
                 col_u5.write("")
 
-    if len(df_usuarios) == 0:
-        st.info("Nenhum usuário cadastrado.")
+        if len(df_usuarios) == 0:
+            st.info("Nenhum usuário cadastrado.")
 
     # ─── TAB RESET ───
     with tab_admin2:
